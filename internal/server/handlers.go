@@ -3,71 +3,47 @@ package server
 import (
 	"log"
 	"net/http"
-	"strconv"
 
-	"github.com/LuchnikKek/metrigo/internal/models"
 	"github.com/LuchnikKek/metrigo/internal/storage"
 	"github.com/gorilla/mux"
 )
 
+// http://<server>/update/{type}/{name}/{value}
 func CreateMetricHandler(store storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Println("Parsed vars:", vars)
 
-		metricType, okType := vars["type"]
-		metricName, okName := vars["name"]
-		metricValue, okValue := vars["value"]
-
-		if !okName || metricName == "" {
-			log.Println("Error: Metric name is missing")
-			http.Error(w, "Metric name is required", http.StatusNotFound)
-			return
-		}
-		if !okType {
-			log.Println("Error: Metric type is missing")
-			http.Error(w, "Metric type is required", http.StatusBadRequest)
-			return
-		}
-		if !okValue {
-			log.Println("Error: Metric value is missing")
-			http.Error(w, "Metric value is required", http.StatusBadRequest)
-			return
-		}
-
-		log.Printf("Processing metric: type=%s, name=%s, value=%s\n", metricType, metricName, metricValue)
-
-		// Определяем тип метрики и парсим значение
-		var metric models.Metric
-		var err error
-
-		switch metricType {
-		case string(models.Gauge):
-			var val float64
-			val, err = strconv.ParseFloat(metricValue, 64)
-			if err == nil {
-				metric = &models.GaugeMetric{Name: metricName, Value: val}
-			}
-		case string(models.Counter):
-			var val int64
-			val, err = strconv.ParseInt(metricValue, 10, 64)
-			if err == nil {
-				metric = &models.CounterMetric{Name: metricName, Value: val}
-			}
-		default:
-			log.Println("Error: Invalid metric type:", metricType)
-			http.Error(w, "Invalid metric type", http.StatusBadRequest)
-			return
-		}
-
+		req, err := ValidateMetricVars(vars)
 		if err != nil {
-			log.Println("Error: Invalid metric value:", metricValue)
-			http.Error(w, "Invalid metric value", http.StatusBadRequest)
+			switch err {
+			case ErrMissingMetricName:
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			case ErrMissingMetricType, ErrMissingMetricValue:
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			default:
+				http.Error(w, "Bad Request", http.StatusBadRequest)
+				return
+			}
+		}
+
+		metric, err := ParseMetric(req)
+		if err != nil {
+			switch err {
+			case ErrInvalidMetricValue:
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			case ErrInvalidMetricType:
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			default:
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
 			return
 		}
 
 		if err := store.Save(metric); err != nil {
-			log.Println("Error: Failed to save metric:", err)
+			log.Println("Failed to save metric:", err)
 			http.Error(w, "Failed to save metric", http.StatusInternalServerError)
 			return
 		}
