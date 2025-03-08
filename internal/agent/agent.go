@@ -1,9 +1,7 @@
 package agent
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"math/rand/v2"
 	"net/http"
@@ -19,14 +17,16 @@ const (
 
 type MetricsAgent struct {
 	client         *http.Client
+	baseURL        string
 	Metrics        Metrics
 	PollInterval   time.Duration
 	ReportInterval time.Duration
 }
 
-func NewMetricsAgent(client *http.Client) *MetricsAgent {
+func NewMetricsAgent(client *http.Client, baseURL string) *MetricsAgent {
 	return &MetricsAgent{
 		client:         client,
+		baseURL:        baseURL,
 		Metrics:        Metrics{},
 		PollInterval:   pollInterval,
 		ReportInterval: reportInterval,
@@ -86,19 +86,20 @@ func (ag *MetricsAgent) Process(m interface{}) {
 }
 
 func (ag *MetricsAgent) Send(mName string, mValue any, mType string) error {
-	url := fmt.Sprintf("http://localhost:8080/update/%s/%s/%v", mType, mName, mValue)
+	url := fmt.Sprintf("%s/update/%s/%s/%v", ag.baseURL, mType, mName, mValue)
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 
-	body := bytes.NewBufferString(fmt.Sprintf("%v", mValue))
-
-	resp, err := ag.client.Post(url, "text/plain", body)
+	resp, err := ag.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	_, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	log.Printf("Metric: %s, value: %v, type: %s. Response: %s\n", mName, mValue, mType, resp.Status)
