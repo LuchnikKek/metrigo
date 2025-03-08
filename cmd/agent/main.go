@@ -1,17 +1,19 @@
 package main
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/LuchnikKek/metrigo/internal/agent"
 )
 
 func main() {
-	metricsAgent := agent.NewMetricsAgent()
+	metricsAgent := agent.NewMetricsAgent(&http.Client{Timeout: 5 * time.Second})
 
-	go metricsAgent.Poll()
+	stop := make(chan struct{})
+	defer close(stop)
 
-	time.Sleep(time.Second * 3)
+	metricsAgent.Start()
 
-	metricsAgent.Send()
+	<-stop
 }

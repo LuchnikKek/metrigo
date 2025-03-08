@@ -18,49 +18,79 @@ const (
 )
 
 type MetricsAgent struct {
+	client         *http.Client
 	Metrics        Metrics
 	PollInterval   time.Duration
 	ReportInterval time.Duration
 }
 
-func NewMetricsAgent() *MetricsAgent {
+func NewMetricsAgent(client *http.Client) *MetricsAgent {
 	return &MetricsAgent{
+		client:         client,
 		Metrics:        Metrics{},
 		PollInterval:   pollInterval,
 		ReportInterval: reportInterval,
 	}
 }
 
-func (ag *MetricsAgent) Poll() {
-	log.Println("Polling started")
-	for {
-		poll(&ag.Metrics)
-		time.Sleep(ag.PollInterval)
-	}
-	// log.Println("Polling finished")
+func (ag *MetricsAgent) Start() {
+	go func() {
+		log.Println("Polling started")
+		for {
+			ag.Poll(&ag.Metrics)
+			time.Sleep(ag.PollInterval)
+		}
+		// log.Println("Polling finished")
+	}()
+
+	time.Sleep(pollInterval) // wait for first poll
+
+	go func() {
+		log.Println("Sending started")
+		for {
+			ag.Process(ag.Metrics)
+			time.Sleep(ag.ReportInterval)
+		}
+		// log.Println("Sending finished")
+	}()
 }
 
-func poll(m *Metrics) {
+func (ag *MetricsAgent) Poll(m *Metrics) {
 	m.PollCount += 1
 	m.RandomValue = rand.Float64()
 	runtime.ReadMemStats(&m.MemStats)
 }
 
-func (ag *MetricsAgent) Send() {
-	log.Println("Sending started")
-	for {
-		process(ag.Metrics)
-		time.Sleep(ag.ReportInterval)
+func (ag *MetricsAgent) Process(m interface{}) {
+	v := reflect.ValueOf(m)
+	t := reflect.TypeOf(m)
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+
+		if value.Kind() == reflect.Struct {
+			ag.Process(value.Interface())
+			continue
+		}
+
+		mName := field.Name
+		mType, inSendingList := MetricTypes[mName]
+		if !inSendingList {
+			continue
+		}
+
+		log.Printf("Sending metric: %s\n", mName)
+		go ag.Send(mName, value.Interface(), string(mType))
 	}
-	// log.Println("Sending finished")
 }
 
-func send(mName string, mValue any, mType string) error {
+func (ag *MetricsAgent) Send(mName string, mValue any, mType string) error {
 	url := fmt.Sprintf("http://localhost:8080/update/%s/%s/%v", mType, mName, mValue)
 
 	body := bytes.NewBufferString(fmt.Sprintf("%v", mValue))
 
-	resp, err := http.Post(url, "text/plain", body)
+	resp, err := ag.client.Post(url, "text/plain", body)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
@@ -73,28 +103,4 @@ func send(mName string, mValue any, mType string) error {
 
 	log.Printf("Metric: %s, value: %v, type: %s. Response: %s\n", mName, mValue, mType, resp.Status)
 	return nil
-}
-
-func process(m interface{}) {
-	v := reflect.ValueOf(m)
-	t := reflect.TypeOf(m)
-
-	for i := 0; i < v.NumField(); i++ {
-		field := t.Field(i)
-		value := v.Field(i)
-
-		if value.Kind() == reflect.Struct {
-			process(value.Interface())
-			continue
-		}
-
-		mName := field.Name
-		mType, inSendingList := MetricTypes[mName]
-		if !inSendingList {
-			continue
-		}
-
-		log.Printf("Sending metric: %s\n", mName)
-		go send(mName, value.Interface(), string(mType))
-	}
 }

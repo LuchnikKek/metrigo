@@ -4,6 +4,7 @@ import (
 	"errors"
 )
 
+// Интерфейс метрики
 type Metric interface {
 	GetName() string
 	GetType() MetricType
@@ -13,6 +14,7 @@ type Metric interface {
 
 type MetricType string
 
+// Enum с возможными значениями
 const (
 	Gauge   MetricType = "gauge"
 	Counter MetricType = "counter"
