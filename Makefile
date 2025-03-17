@@ -7,7 +7,7 @@ start-server:
 	@go build -o cmd/server/server cmd/server/*.go
 	@./cmd/server/server $(if $(a),-a "$(a)",)
 
-# make start-server a=<HOST:PORT>
+# make start-server a=<HOST:PORT> p=<ИНТВЕРВАЛ_СБОРА_МЕТРИК> r=<ИНТЕРВАЛ_ОТПРАВКИ_МЕТРИК> t=<ТАЙМАУТ_ОТПРАВКИ_МЕТРИКИ>
 start-agent:
 	@go build -o cmd/agent/agent cmd/agent/*.go
 	@./cmd/agent/agent $(if $(a),-a "$(a)",) $(if $(p),-p "$(p)",) $(if $(r),-r "$(r)",) $(if $(t),-t "$(t)",)
