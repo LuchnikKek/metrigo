@@ -21,7 +21,6 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string) (*http.
 
 	resp, err := ts.Client().Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -56,6 +55,7 @@ func TestMetricsRouterUpdateGauge(t *testing.T) {
 	}
 	for _, v := range testTable { // single test with all requests
 		resp, get := testRequest(t, ts, v.method, v.url)
+		defer resp.Body.Close()
 		assert.Equal(t, v.status, resp.StatusCode)
 		assert.Equal(t, v.want, get)
 	}
@@ -88,6 +88,8 @@ func TestMetricsRouterUpdateCounter(t *testing.T) {
 	}
 	for _, v := range testTable { // single test with all requests
 		resp, get := testRequest(t, ts, v.method, v.url)
+		defer resp.Body.Close()
+
 		assert.Equal(t, v.status, resp.StatusCode)
 		assert.Equal(t, v.want, get)
 	}
@@ -113,9 +115,11 @@ func TestMetricsUpdateOverwriteCounter(t *testing.T) {
 
 			resp, _ := testRequest(t, ts, "POST", "/update/counter/PollCount/"+v.first)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+			defer resp.Body.Close()
 
 			resp, _ = testRequest(t, ts, "POST", "/update/counter/PollCount/"+v.second)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+			defer resp.Body.Close()
 
 			value, err := st.Get("PollCount")
 			require.NoError(t, err)
@@ -147,9 +151,11 @@ func TestMetricsUpdateOverwriteGauge(t *testing.T) {
 
 			resp, _ := testRequest(t, ts, "POST", "/update/gauge/HeapIdle/"+v.first)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+			defer resp.Body.Close()
 
 			resp, _ = testRequest(t, ts, "POST", "/update/gauge/HeapIdle/"+v.second)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+			defer resp.Body.Close()
 
 			value, err := st.Get("HeapIdle")
 			require.NoError(t, err)
@@ -195,6 +201,7 @@ func TestMetricsRouterRead(t *testing.T) {
 	for _, v := range testTable {
 		t.Run(v.name, func(t *testing.T) {
 			resp, get := testRequest(t, ts, v.method, v.url)
+			defer resp.Body.Close()
 			assert.Equal(t, v.status, resp.StatusCode)
 			assert.Equal(t, v.want, get)
 		})
