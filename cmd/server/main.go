@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/LuchnikKek/metrigo/internal/server"
 	"github.com/LuchnikKek/metrigo/internal/storage"
@@ -10,9 +11,15 @@ import (
 func main() {
 	store := storage.NewInMemoryStorage()
 
-	srv := server.NewServer(store)
+	router := server.MetricsRouter(store)
 
-	log.Println("Server running on :8080")
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
+
+	log.Println("Server is running on port 8080")
+
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}

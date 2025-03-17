@@ -1,76 +1,83 @@
 package server
 
 import (
-	"errors"
+	"net/http"
 	"strconv"
 
+	"github.com/LuchnikKek/metrigo/internal/agent"
 	"github.com/LuchnikKek/metrigo/internal/models"
+	"github.com/go-chi/chi/v5"
 )
 
-// Ошибки при валидации
-var (
-	ErrMissingMetricName  = errors.New("metric name is required")
-	ErrMissingMetricType  = errors.New("metric type is required")
-	ErrMissingMetricValue = errors.New("metric value is required")
-	ErrInvalidMetricType  = errors.New("invalid metric type")
-	ErrInvalidMetricValue = errors.New("invalid metric value")
-)
+func ValidateMetricType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mType := chi.URLParam(r, "type")
 
-// DTO-шка
-type MetricRequest struct {
-	Type  string
-	Name  string
-	Value string
+		// Проверка на пустую строку
+		if mType == "" {
+			http.Error(w, "metric type is required", http.StatusBadRequest)
+			return
+		}
+
+		// Проверка на валидность значения
+		if !models.IsValidMetricType(mType) {
+			http.Error(w, "invalid metric type", http.StatusBadRequest)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
-// ValidateMetricVars проверяет, что в URL есть нужные параметры
-func ValidateMetricVars(vars map[string]string) (MetricRequest, error) {
-	metricType, okType := vars["type"]
-	metricName, okName := vars["name"]
-	metricValue, okValue := vars["value"]
+func ValidateMetricName(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mName := chi.URLParam(r, "name")
 
-	if !okName || metricName == "" {
-		return MetricRequest{}, ErrMissingMetricName
-	}
-	if !okType || metricType == "" {
-		return MetricRequest{}, ErrMissingMetricType
-	}
-	if !okValue || metricValue == "" {
-		return MetricRequest{}, ErrMissingMetricValue
-	}
+		// Проверка на пустую строку
+		if mName == "" {
+			http.Error(w, "metric name is required", http.StatusNotFound)
+			return
+		}
 
-	return MetricRequest{
-		Type:  metricType,
-		Name:  metricName,
-		Value: metricValue,
-	}, nil
+		// Проверка на существование метрики
+		if _, ok := agent.MetricTypes[mName]; !ok {
+			http.Error(w, "invalid metric name", http.StatusBadRequest)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
-// ParseMetric создаёт экземпляр GaugeMetric или CounterMetric
-// на основе URL-параметров (type, name, value)
-func ParseMetric(req MetricRequest) (models.Metric, error) {
-	switch req.Type {
-	case string(models.Gauge):
-		val, err := strconv.ParseFloat(req.Value, 64)
-		if err != nil {
-			return nil, ErrInvalidMetricValue
-		}
-		return &models.GaugeMetric{
-			Name:  req.Name,
-			Value: val,
-		}, nil
+func ValidateMetricValue(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mValue := chi.URLParam(r, "value")
 
-	case string(models.Counter):
-		val, err := strconv.ParseInt(req.Value, 10, 64)
-		if err != nil {
-			return nil, ErrInvalidMetricValue
+		// Проверка на пустую строку
+		if mValue == "" {
+			http.Error(w, "metric value is required", http.StatusBadRequest)
+			return
 		}
-		return &models.CounterMetric{
-			Name:  req.Name,
-			Value: val,
-		}, nil
 
-	default:
-		return nil, ErrInvalidMetricType
-	}
+		// Проверка что метрика парсится
+		switch models.MetricType(chi.URLParam(r, "type")) {
+		case models.Gauge:
+			if _, err := strconv.ParseFloat(mValue, 64); err != nil {
+				http.Error(w, "invalid metric value", http.StatusBadRequest)
+				return
+			}
+
+		case models.Counter:
+			if _, err := strconv.ParseInt(mValue, 10, 64); err != nil {
+				http.Error(w, "invalid metric value", http.StatusBadRequest)
+				return
+			}
+
+		default:
+			http.Error(w, "invalid metric type", http.StatusBadRequest)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

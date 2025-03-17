@@ -2,15 +2,9 @@ package models
 
 import (
 	"errors"
+	"log"
+	"strconv"
 )
-
-// Интерфейс метрики
-type Metric interface {
-	GetName() string
-	GetType() MetricType
-	Update(value any) error
-	GetValue() any
-}
 
 type MetricType string
 
@@ -20,38 +14,89 @@ const (
 	Counter MetricType = "counter"
 )
 
+var (
+	ErrInvalidMetricType  = errors.New("invalid metric type")
+	ErrInvalidMetricValue = errors.New("invalid metric value")
+)
+
+func IsValidMetricType(mType string) bool {
+	m := MetricType(mType)
+	return m == Gauge || m == Counter
+}
+
+// Интерфейс метрики
+type Metric interface {
+	GetName() string
+	GetType() MetricType
+	Update(value any) error
+	GetValue() string
+}
+
+func NewMetric(mType, name, value string) (Metric, error) {
+	switch MetricType(mType) {
+	case Gauge:
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, err
+		}
+		return NewGaugeMetric(name, v), nil
+
+	case Counter:
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return nil, err
+		}
+		return NewCounterMetric(name, v), nil
+
+	default:
+		return nil, ErrInvalidMetricType
+	}
+
+}
+
 type GaugeMetric struct {
-	Name  string
-	Value float64
+	Name  string     `json:"name"`
+	Value float64    `json:"value"`
+	Type  MetricType `json:"type"`
+}
+
+func NewGaugeMetric(name string, value float64) *GaugeMetric {
+	return &GaugeMetric{Name: name, Value: value, Type: Gauge}
 }
 
 func (m *GaugeMetric) GetName() string     { return m.Name }
-func (m *GaugeMetric) GetType() MetricType { return Gauge }
-func (m *GaugeMetric) GetValue() any       { return m.Value }
+func (m *GaugeMetric) GetType() MetricType { return m.Type }
+func (m *GaugeMetric) GetValue() string    { return strconv.FormatFloat(m.Value, 'f', -1, 64) }
 
 func (m *GaugeMetric) Update(value any) error {
-	v, ok := value.(float64)
+	log.Printf("%T and %#v", value, value)
+	v, ok := value.(*GaugeMetric)
 	if !ok {
-		return errors.New("invalid value type for gauge, expected float64")
+		return ErrInvalidMetricValue
 	}
-	m.Value = v
+	m.Value = v.Value
 	return nil
 }
 
 type CounterMetric struct {
 	Name  string
-	Value int64
+	Value int
+	Type  MetricType
+}
+
+func NewCounterMetric(name string, value int) *CounterMetric {
+	return &CounterMetric{Name: name, Value: value, Type: Counter}
 }
 
 func (m *CounterMetric) GetName() string     { return m.Name }
-func (m *CounterMetric) GetType() MetricType { return Counter }
-func (m *CounterMetric) GetValue() any       { return m.Value }
+func (m *CounterMetric) GetType() MetricType { return m.Type }
+func (m *CounterMetric) GetValue() string    { return strconv.Itoa(m.Value) }
 
 func (m *CounterMetric) Update(value any) error {
-	v, ok := value.(int64)
+	v, ok := value.(*CounterMetric)
 	if !ok {
-		return errors.New("invalid value type for counter, expected int64")
+		return ErrInvalidMetricValue
 	}
-	m.Value += v
+	m.Value += v.Value
 	return nil
 }
