@@ -55,11 +55,9 @@ func TestMetricsRouterUpdateGauge(t *testing.T) {
 		{"POST", "/update/invalid/HeapIdle/5210112", "invalid metric type\n", http.StatusBadRequest},
 	}
 	for _, v := range testTable { // single test with all requests
-		t.Run(v.url, func(t *testing.T) {
-			resp, get := testRequest(t, ts, v.method, v.url)
-			assert.Equal(t, v.status, resp.StatusCode)
-			assert.Equal(t, v.want, get)
-		})
+		resp, get := testRequest(t, ts, v.method, v.url)
+		assert.Equal(t, v.status, resp.StatusCode)
+		assert.Equal(t, v.want, get)
 	}
 }
 
@@ -89,11 +87,9 @@ func TestMetricsRouterUpdateCounter(t *testing.T) {
 		{"POST", "/update/invalid/PollCount/1", "invalid metric type\n", http.StatusBadRequest},
 	}
 	for _, v := range testTable { // single test with all requests
-		t.Run(v.url, func(t *testing.T) {
-			resp, get := testRequest(t, ts, v.method, v.url)
-			assert.Equal(t, v.status, resp.StatusCode)
-			assert.Equal(t, v.want, get)
-		})
+		resp, get := testRequest(t, ts, v.method, v.url)
+		assert.Equal(t, v.status, resp.StatusCode)
+		assert.Equal(t, v.want, get)
 	}
 }
 
