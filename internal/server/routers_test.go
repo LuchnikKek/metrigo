@@ -183,7 +183,7 @@ func TestMetricsRouterRead(t *testing.T) {
 		{"gauge float", "GET", "/value/gauge/RandomValue", "0.31415926", http.StatusOK},
 		{"counter int", "GET", "/value/counter/PollCount", "2", http.StatusOK},
 
-		{"metric name not in available", "GET", "/value/gauge/lalala", "invalid metric name\n", http.StatusBadRequest},
+		{"metric name not in available", "GET", "/value/gauge/lalala", "Metric not found\n", http.StatusNotFound},
 		{"metric name in available, not fetched", "GET", "/value/gauge/StackInuse", "Metric not found\n", http.StatusNotFound},
 		{"incorrect metric type", "GET", "/value/counter/RandomValue", "Metric not found\n", http.StatusNotFound},
 		{"metric type does not exists", "GET", "/value/lol/RandomValue", "invalid metric type\n", http.StatusBadRequest},

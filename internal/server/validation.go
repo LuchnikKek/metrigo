@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/LuchnikKek/metrigo/internal/agent"
 	"github.com/LuchnikKek/metrigo/internal/models"
 	"github.com/go-chi/chi/v5"
 )
@@ -36,12 +35,6 @@ func ValidateMetricName(next http.Handler) http.Handler {
 		// Проверка на пустую строку
 		if mName == "" {
 			http.Error(w, "metric name is required", http.StatusNotFound)
-			return
-		}
-
-		// Проверка на существование метрики
-		if _, ok := agent.MetricTypes[mName]; !ok {
-			http.Error(w, "invalid metric name", http.StatusBadRequest)
 			return
 		}
 
