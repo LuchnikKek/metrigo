@@ -9,16 +9,17 @@ import (
 )
 
 func main() {
+	ParseFlags()
 	store := storage.NewInMemoryStorage()
 
 	router := server.MetricsRouter(store)
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    Options.Addr,
 		Handler: router,
 	}
 
-	log.Println("Server is running on port 8080")
+	log.Println("Server is running on", srv.Addr)
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)

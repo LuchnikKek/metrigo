@@ -10,11 +10,6 @@ import (
 	"time"
 )
 
-const (
-	pollInterval   = 2 * time.Second
-	reportInterval = 10 * time.Second
-)
-
 type MetricsAgent struct {
 	client         *http.Client
 	baseURL        string
@@ -23,7 +18,7 @@ type MetricsAgent struct {
 	ReportInterval time.Duration
 }
 
-func NewMetricsAgent(client *http.Client, baseURL string) *MetricsAgent {
+func NewMetricsAgent(client *http.Client, baseURL string, pollInterval, reportInterval time.Duration) *MetricsAgent {
 	return &MetricsAgent{
 		client:         client,
 		baseURL:        baseURL,
@@ -43,7 +38,7 @@ func (ag *MetricsAgent) Start() {
 		// log.Println("Polling finished")
 	}()
 
-	time.Sleep(pollInterval) // wait for first poll
+	time.Sleep(ag.PollInterval) // wait for first poll
 
 	go func() {
 		log.Println("Sending started")

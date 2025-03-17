@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -57,7 +58,7 @@ func TestMetricsAgent_Send(t *testing.T) {
 			defer ts.Close()
 
 			client := &http.Client{}
-			ag := NewMetricsAgent(client, ts.URL)
+			ag := NewMetricsAgent(client, ts.URL, 2*time.Second, 10*time.Second)
 
 			err := ag.Send(tC.value.Name, tC.value.Value, tC.value.Type)
 			require.NoError(t, err)
