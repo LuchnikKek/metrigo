@@ -6,6 +6,8 @@ import (
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/caarlos0/env"
 )
 
 type TimeInterval struct {
@@ -32,7 +34,14 @@ var Options struct {
 	RequestTimeout time.Duration
 }
 
-func ParseFlags() {
+func InitOptions() {
+	parseFlags()
+	parseEnvs()
+
+	log.Printf("Config parsed: %+v\r\n", Options)
+}
+
+func parseFlags() {
 	pollInterval := &TimeInterval{Duration: 2 * time.Second}
 	reportInterval := &TimeInterval{Duration: 10 * time.Second}
 	requestTimeout := &TimeInterval{Duration: 5 * time.Second}
@@ -47,6 +56,29 @@ func ParseFlags() {
 	Options.PollInterval = pollInterval.Duration
 	Options.ReportInterval = reportInterval.Duration
 	Options.RequestTimeout = requestTimeout.Duration
+}
 
-	log.Printf("Config parsed: %+v\r\n", Options)
+type EnvConfig struct {
+	Addr           string  `env:"ADDRESS"`
+	ReportInterval float64 `env:"REPORT_INTERVAL"`
+	PollInterval   float64 `env:"POLL_INTERVAL"`
+}
+
+func parseEnvs() {
+	var cfg EnvConfig
+
+	err := env.Parse(&cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if cfg.Addr != "" {
+		Options.Addr = cfg.Addr
+	}
+	if cfg.PollInterval != 0.0 {
+		Options.PollInterval = time.Duration(cfg.PollInterval * float64(time.Second))
+	}
+	if cfg.ReportInterval != 0.0 {
+		Options.ReportInterval = time.Duration(cfg.ReportInterval * float64(time.Second))
+	}
 }

@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	ParseFlags()
+	InitOptions()
 	metricsAgent := agent.NewMetricsAgent(
 		&http.Client{Timeout: Options.RequestTimeout},
 		"http://"+Options.Addr,

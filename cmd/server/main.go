@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	ParseFlags()
+	InitOptions()
 	store := storage.NewInMemoryStorage()
 
 	router := server.MetricsRouter(store)
