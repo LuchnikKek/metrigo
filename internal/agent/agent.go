@@ -60,7 +60,7 @@ func (ag *MetricsAgent) Process(m interface{}) {
 	v := reflect.ValueOf(m)
 	t := reflect.TypeOf(m)
 
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		field := t.Field(i)
 		value := v.Field(i)
 
