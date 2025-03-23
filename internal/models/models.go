@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"log"
 	"strconv"
 )
 
@@ -29,10 +28,11 @@ type Metric interface {
 	GetName() string
 	GetType() MetricType
 	Update(value any) error
-	GetValue() string
+	GetValue() any
 }
 
-func NewMetric(mType, name, value string) (Metric, error) {
+// Парсит метрику из строковых значений
+func ParseMetric(mType, name, value string) (Metric, error) {
 	switch MetricType(mType) {
 	case Gauge:
 		v, err := strconv.ParseFloat(value, 64)
@@ -51,7 +51,6 @@ func NewMetric(mType, name, value string) (Metric, error) {
 	default:
 		return nil, ErrInvalidMetricType
 	}
-
 }
 
 type GaugeMetric struct {
@@ -66,22 +65,20 @@ func NewGaugeMetric(name string, value float64) *GaugeMetric {
 
 func (m *GaugeMetric) GetName() string     { return m.Name }
 func (m *GaugeMetric) GetType() MetricType { return m.Type }
-func (m *GaugeMetric) GetValue() string    { return strconv.FormatFloat(m.Value, 'f', -1, 64) }
+func (m *GaugeMetric) GetValue() any    { return m.Value } // strconv.FormatFloat(m.Value, 'f', -1, 64)
 
 func (m *GaugeMetric) Update(value any) error {
-	log.Printf("%T and %#v", value, value)
-	v, ok := value.(*GaugeMetric)
-	if !ok {
-		return ErrInvalidMetricValue
+	if val, ok := value.(float64); ok {
+		m.Value = val
+		return nil
 	}
-	m.Value = v.Value
-	return nil
+	return ErrInvalidMetricValue
 }
 
 type CounterMetric struct {
-	Name  string
-	Value int
-	Type  MetricType
+	Name  string        `json:"name"`
+	Value int           `json:"value"`
+	Type  MetricType    `json:"type"`
 }
 
 func NewCounterMetric(name string, value int) *CounterMetric {
@@ -90,13 +87,12 @@ func NewCounterMetric(name string, value int) *CounterMetric {
 
 func (m *CounterMetric) GetName() string     { return m.Name }
 func (m *CounterMetric) GetType() MetricType { return m.Type }
-func (m *CounterMetric) GetValue() string    { return strconv.Itoa(m.Value) }
+func (m *CounterMetric) GetValue() any    { return m.Value } // fmt.Sprint(m.Value)
 
 func (m *CounterMetric) Update(value any) error {
-	v, ok := value.(*CounterMetric)
-	if !ok {
-		return ErrInvalidMetricValue
+	if val, ok := value.(int); ok {
+		m.Value += val
+		return nil
 	}
-	m.Value += v.Value
-	return nil
+	return ErrInvalidMetricValue
 }

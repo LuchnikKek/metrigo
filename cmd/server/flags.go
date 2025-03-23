@@ -2,28 +2,24 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 )
 
-var Options struct {
+type Config struct {
 	Addr string
 }
 
-func InitOptions() {
-	parseFlags()
-	parseEnvs()
-
-	log.Printf("Config parsed: %+v\r\n", Options)
+func NewConfig() *Config {
+	return &Config{}
 }
 
-func parseFlags() {
-	flag.StringVar(&Options.Addr, "a", "localhost:8080", "адрес и порт, на котором будет запущен сервер")
+func (cfg *Config) ParseFlags() {
+	flag.StringVar(&cfg.Addr, "a", "localhost:8080", "адрес и порт, на котором будет запущен сервер")
 	flag.Parse()
 }
 
-func parseEnvs() {
+func (cfg *Config) ParseEnvs() {
 	if envRunAddr, isSet := os.LookupEnv("ADDRESS"); isSet {
-		Options.Addr = envRunAddr
+		cfg.Addr = envRunAddr
 	}
 }

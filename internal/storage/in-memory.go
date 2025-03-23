@@ -18,7 +18,7 @@ func NewInMemoryStorage() *InMemoryStorage {
 	}
 }
 
-func (s *InMemoryStorage) Save(m models.Metric) error {
+func (s *InMemoryStorage) SaveMetric(m models.Metric) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -30,7 +30,7 @@ func (s *InMemoryStorage) Save(m models.Metric) error {
 		log.Printf("Metric created: %v, val=%#v\n", name, m)
 		return nil
 	}
-	if err := stored.Update(m); err == nil {
+	if err := stored.Update(m.GetValue()); err == nil {
 		s.metrics[name] = stored
 		log.Printf("Metric updated: %v, val=%#v\n", name, stored)
 		return nil
@@ -40,7 +40,7 @@ func (s *InMemoryStorage) Save(m models.Metric) error {
 	}
 }
 
-func (s *InMemoryStorage) Get(name string) (models.Metric, error) {
+func (s *InMemoryStorage) GetMetricByName(name string) (models.Metric, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	m, exists := s.metrics[name]
@@ -50,7 +50,7 @@ func (s *InMemoryStorage) Get(name string) (models.Metric, error) {
 	return m, nil
 }
 
-func (s *InMemoryStorage) GetAll() []models.Metric {
+func (s *InMemoryStorage) GetMetrics() []models.Metric {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return mapToValues(s.metrics)

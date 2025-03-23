@@ -50,7 +50,7 @@ func TestMetricsRouterUpdateGauge(t *testing.T) {
 		{"POST", "/update/gauge//5210112", "metric name is required\n", http.StatusNotFound},
 		{"POST", "/update//HeapIdle/5210112", "metric type is required\n", http.StatusBadRequest},
 		{"POST", "/update/gauge/HeapIdle/", "metric value is required\n", http.StatusBadRequest},
-		{"POST", "/update/gauge/HeapIdle/lalala", "invalid metric value\n", http.StatusBadRequest},
+		{"POST", "/update/gauge/HeapIdle/lalala", "invalid metric\n", http.StatusBadRequest},
 		{"POST", "/update/invalid/HeapIdle/5210112", "invalid metric type\n", http.StatusBadRequest},
 	}
 	for _, v := range testTable { // single test with all requests
@@ -73,7 +73,7 @@ func TestMetricsRouterUpdateCounter(t *testing.T) {
 		status int
 	}{
 		{"POST", "/update/counter/PollCount/1", "", http.StatusOK},
-		{"POST", "/update/counter/PollCount/1.12", "invalid metric value\n", http.StatusBadRequest},
+		{"POST", "/update/counter/PollCount/1.12", "invalid metric\n", http.StatusBadRequest},
 
 		{"GET", "/update/counter/PollCount/1", "", http.StatusMethodNotAllowed},
 		{"PUT", "/update/counter/PollCount/1", "", http.StatusMethodNotAllowed},
@@ -83,7 +83,7 @@ func TestMetricsRouterUpdateCounter(t *testing.T) {
 		{"POST", "/update/counter//1", "metric name is required\n", http.StatusNotFound},
 		{"POST", "/update//PollCount/1", "metric type is required\n", http.StatusBadRequest},
 		{"POST", "/update/counter/PollCount/", "metric value is required\n", http.StatusBadRequest},
-		{"POST", "/update/counter/PollCount/lalala", "invalid metric value\n", http.StatusBadRequest},
+		{"POST", "/update/counter/PollCount/lalala", "invalid metric\n", http.StatusBadRequest},
 		{"POST", "/update/invalid/PollCount/1", "invalid metric type\n", http.StatusBadRequest},
 	}
 	for _, v := range testTable { // single test with all requests
@@ -99,12 +99,12 @@ func TestMetricsUpdateOverwriteCounter(t *testing.T) {
 	var testTable = []struct {
 		first    string
 		second   string
-		expected string
+		expected int
 	}{
-		{"1", "2", "3"},
-		{"10", "4", "14"},
-		{"0", "100", "100"},
-		{"44", "0", "44"},
+		{"1", "2", 3},
+		{"10", "4", 14},
+		{"0", "100", 100},
+		{"44", "0", 44},
 	}
 
 	for _, v := range testTable {
@@ -121,7 +121,7 @@ func TestMetricsUpdateOverwriteCounter(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			defer resp.Body.Close()
 
-			value, err := st.Get("PollCount")
+			value, err := st.GetMetricByName("PollCount")
 			require.NoError(t, err)
 
 			assert.Equal(t, value.GetValue(), v.expected)
@@ -133,15 +133,15 @@ func TestMetricsUpdateOverwriteGauge(t *testing.T) {
 	var testTable = []struct {
 		first    string
 		second   string
-		expected string
+		expected float64
 	}{
-		{"5210", "521", "521"},
-		{"10", "4", "4"},
-		{"10", "4.4", "4.4"},
-		{"10.1", "4", "4"},
-		{"10.1", "4.4", "4.4"},
-		{"111", "0", "0"},
-		{"0", "42.6", "42.6"},
+		{"5210", "521", 521},
+		{"10", "4", 4},
+		{"10", "4.4", 4.4},
+		{"10.1", "4", 4},
+		{"10.1", "4.4", 4.4},
+		{"111", "0", 0},
+		{"0", "42.6", 42.6},
 	}
 	for _, v := range testTable {
 		t.Run(fmt.Sprintf("Gauge %s updated by %s", v.first, v.second), func(t *testing.T) {
@@ -157,7 +157,7 @@ func TestMetricsUpdateOverwriteGauge(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			defer resp.Body.Close()
 
-			value, err := st.Get("HeapIdle")
+			value, err := st.GetMetricByName("HeapIdle")
 			require.NoError(t, err)
 
 			assert.Equal(t, value.GetValue(), v.expected)
@@ -167,9 +167,9 @@ func TestMetricsUpdateOverwriteGauge(t *testing.T) {
 
 func TestMetricsRouterRead(t *testing.T) {
 	st := storage.NewInMemoryStorage()
-	st.Save(models.NewGaugeMetric("HeapInuse", 729088))
-	st.Save(models.NewGaugeMetric("RandomValue", 0.31415926))
-	st.Save(models.NewCounterMetric("PollCount", 2))
+	st.SaveMetric(models.NewGaugeMetric("HeapInuse", 729088))
+	st.SaveMetric(models.NewGaugeMetric("RandomValue", 0.31415926))
+	st.SaveMetric(models.NewCounterMetric("PollCount", 2))
 
 	ts := httptest.NewServer(MetricsRouter(st))
 	defer ts.Close()
@@ -211,12 +211,12 @@ func TestMetricsRouterRead(t *testing.T) {
 func TestMetricsRouterReadAll(t *testing.T) {
 	st := storage.NewInMemoryStorage()
 	expectedData := []models.Metric{
+		models.NewCounterMetric("PollCount", 2),
 		models.NewGaugeMetric("HeapInuse", 729088),
 		models.NewGaugeMetric("RandomValue", 0.31415926),
-		models.NewCounterMetric("PollCount", 2),
 	}
 	for _, mData := range expectedData {
-		st.Save(mData)
+		st.SaveMetric(mData)
 	}
 
 	ts := httptest.NewServer(MetricsRouter(st))
@@ -224,7 +224,7 @@ func TestMetricsRouterReadAll(t *testing.T) {
 
 	type MockMetric struct {
 		Name  string            `json:"name"`
-		Value float64           `json:"value"`
+		Value any           	`json:"value"`
 		Type  models.MetricType `json:"type"`
 	}
 	respData := []MockMetric{}
@@ -239,10 +239,19 @@ func TestMetricsRouterReadAll(t *testing.T) {
 	assert.Equal(t, len(respData), len(expectedData))
 
 	for _, respVal := range respData {
-		expVal, err := st.Get(respVal.Name)
+		expVal, err := st.GetMetricByName(respVal.Name)
+
 		assert.NoError(t, err)
+
 		assert.Equal(t, expVal.GetName(), respVal.Name)
 		assert.Equal(t, expVal.GetType(), respVal.Type)
-		assert.Equal(t, expVal.GetValue(), strconv.FormatFloat(respVal.Value, 'f', -1, 64))
+		
+		if respVal.Type == models.Gauge {
+			assert.Equal(t, expVal.GetValue(), respVal.Value)
+		}
+		if respVal.Type == models.Counter {
+			intVal, _ := strconv.Atoi(fmt.Sprint(respVal.Value))
+			assert.Equal(t, expVal.GetValue(), intVal)
+		}
 	}
 }

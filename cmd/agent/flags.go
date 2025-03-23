@@ -27,58 +27,59 @@ func (ti *TimeInterval) Set(flagValue string) error {
 	return nil
 }
 
-var Options struct {
+type Config struct {
 	Addr           string
 	ReportInterval time.Duration
 	PollInterval   time.Duration
 	RequestTimeout time.Duration
 }
 
-func InitOptions() {
-	parseFlags()
-	parseEnvs()
-
-	log.Printf("Config parsed: %+v\r\n", Options)
+func NewConfig() *Config {
+	return &Config{}
 }
 
-func parseFlags() {
+func (cfg *Config) ParseFlags() {
 	pollInterval := &TimeInterval{Duration: 2 * time.Second}
 	reportInterval := &TimeInterval{Duration: 10 * time.Second}
 	requestTimeout := &TimeInterval{Duration: 5 * time.Second}
 
-	flag.StringVar(&Options.Addr, "a", "localhost:8080", "адрес и порт сервера куда отправлять метрики")
+	flag.StringVar(&cfg.Addr, "a", "localhost:8080", "адрес и порт сервера куда отправлять метрики")
 	flag.Var(pollInterval, "p", "частота опроса метрик из пакета runtime")
 	flag.Var(reportInterval, "r", "частота отправки метрик на сервер")
 	flag.Var(requestTimeout, "t", "таймаут запроса на отправку метрики")
 
 	flag.Parse()
 
-	Options.PollInterval = pollInterval.Duration
-	Options.ReportInterval = reportInterval.Duration
-	Options.RequestTimeout = requestTimeout.Duration
+	cfg.PollInterval = pollInterval.Duration
+	cfg.ReportInterval = reportInterval.Duration
+	cfg.RequestTimeout = requestTimeout.Duration
 }
 
 type EnvConfig struct {
-	Addr           string  `env:"ADDRESS"`
-	ReportInterval float64 `env:"REPORT_INTERVAL"`
-	PollInterval   float64 `env:"POLL_INTERVAL"`
+	Addr                string  `env:"ADDRESS"`
+	ReportInterval      float64 `env:"REPORT_INTERVAL"`
+	PollInterval        float64 `env:"POLL_INTERVAL"`
+	RequestTimeout      float64 `env:"REQUEST_TIMEOUT"`
 }
 
-func parseEnvs() {
-	var cfg EnvConfig
+func (cfg *Config) ParseEnvs() {
+	var ec EnvConfig
 
-	err := env.Parse(&cfg)
+	err := env.Parse(&ec)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if cfg.Addr != "" {
-		Options.Addr = cfg.Addr
+	if ec.Addr != "" {
+		cfg.Addr = ec.Addr
 	}
-	if cfg.PollInterval != 0.0 {
-		Options.PollInterval = time.Duration(cfg.PollInterval * float64(time.Second))
+	if ec.PollInterval != 0.0 {
+		cfg.PollInterval = time.Duration(ec.PollInterval * float64(time.Second))
 	}
-	if cfg.ReportInterval != 0.0 {
-		Options.ReportInterval = time.Duration(cfg.ReportInterval * float64(time.Second))
+	if ec.ReportInterval != 0.0 {
+		cfg.ReportInterval = time.Duration(ec.ReportInterval * float64(time.Second))
+	}
+	if ec.RequestTimeout != 0.0 {
+		cfg.RequestTimeout = time.Duration(ec.RequestTimeout * float64(time.Second))
 	}
 }

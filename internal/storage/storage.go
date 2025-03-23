@@ -7,9 +7,9 @@ import (
 )
 
 type Storage interface {
-	Save(m models.Metric) error
-	Get(name string) (models.Metric, error)
-	GetAll() []models.Metric
+	SaveMetric(m models.Metric) error
+	GetMetricByName(name string) (models.Metric, error)
+	GetMetrics() []models.Metric
 }
 
 var (

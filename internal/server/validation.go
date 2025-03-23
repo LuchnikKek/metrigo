@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/LuchnikKek/metrigo/internal/models"
 	"github.com/go-chi/chi/v5"
@@ -44,6 +43,8 @@ func ValidateMetricName(next http.Handler) http.Handler {
 
 func ValidateMetricValue(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mType := chi.URLParam(r, "type")
+		mName := chi.URLParam(r, "name")
 		mValue := chi.URLParam(r, "value")
 
 		// Проверка на пустую строку
@@ -53,21 +54,13 @@ func ValidateMetricValue(next http.Handler) http.Handler {
 		}
 
 		// Проверка что метрика парсится
-		switch models.MetricType(chi.URLParam(r, "type")) {
-		case models.Gauge:
-			if _, err := strconv.ParseFloat(mValue, 64); err != nil {
-				http.Error(w, "invalid metric value", http.StatusBadRequest)
-				return
-			}
-
-		case models.Counter:
-			if _, err := strconv.ParseInt(mValue, 10, 64); err != nil {
-				http.Error(w, "invalid metric value", http.StatusBadRequest)
-				return
-			}
-
-		default:
+		_, err := models.ParseMetric(mType, mName, mValue)
+		if err == models.ErrInvalidMetricType {
 			http.Error(w, "invalid metric type", http.StatusBadRequest)
+			return
+		}
+		if err != nil {
+			http.Error(w, "invalid metric", http.StatusBadRequest)
 			return
 		}
 

@@ -1,18 +1,22 @@
 package main
 
 import (
-	"net/http"
+	"log"
 
 	"github.com/LuchnikKek/metrigo/internal/agent"
 )
 
 func main() {
-	InitOptions()
+	cfg := NewConfig()
+	cfg.ParseFlags()
+	cfg.ParseEnvs()
+	log.Printf("Config parsed: %+v\r\n", cfg)
+
 	metricsAgent := agent.NewMetricsAgent(
-		&http.Client{Timeout: Options.RequestTimeout},
-		"http://"+Options.Addr,
-		Options.PollInterval,
-		Options.ReportInterval,
+		"http://"+cfg.Addr,
+		cfg.PollInterval,
+		cfg.ReportInterval,
+		cfg.RequestTimeout,
 	)
 
 	stop := make(chan struct{})

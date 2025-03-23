@@ -6,36 +6,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/LuchnikKek/metrigo/internal/models"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMetricsAgent_Send(t *testing.T) {
-	type MetricTestStruct struct {
-		Name  string
-		Value any
-		Type  string
-	}
+func TestMetricsAgent_SendMetric(t *testing.T) {
 	testCases := []struct {
 		name  string
-		value MetricTestStruct
+		value models.Metric
 		want  string
 	}{
 		{
 			name: "TestSendCounter",
-			value: MetricTestStruct{
-				Name:  "PollCount",
-				Value: 10,
-				Type:  "counter",
-			},
+			value: models.NewCounterMetric("PollCount", 10),
 			want: "/update/counter/PollCount/10",
 		},
 		{
 			name: "TestSendGauge",
-			value: MetricTestStruct{
-				Name:  "RandomValue",
-				Value: 0.1234,
-				Type:  "gauge",
-			},
+			value: models.NewGaugeMetric("RandomValue", 0.1234),
 			want: "/update/gauge/RandomValue/0.1234",
 		},
 	}
@@ -57,10 +45,9 @@ func TestMetricsAgent_Send(t *testing.T) {
 			}))
 			defer ts.Close()
 
-			client := &http.Client{}
-			ag := NewMetricsAgent(client, ts.URL, 2*time.Second, 10*time.Second)
+			ag := NewMetricsAgent(ts.URL, 2*time.Second, 10*time.Second, 5*time.Second)
 
-			err := ag.Send(tC.value.Name, tC.value.Value, tC.value.Type)
+			err := ag.SendMetric(tC.value)
 			require.NoError(t, err)
 		})
 	}

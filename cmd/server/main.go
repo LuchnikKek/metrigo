@@ -18,8 +18,6 @@ const (
 )
 
 func main() {
-	InitOptions()
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -29,13 +27,16 @@ func main() {
 }
 
 func runServer(ctx context.Context) error {
+	cfg := NewConfig()
+	cfg.ParseFlags()
+	cfg.ParseEnvs()
+	log.Printf("Config parsed: %+v\r\n", cfg)
+
 	store := storage.NewInMemoryStorage()
 
-	router := server.MetricsRouter(store)
-
 	srv := &http.Server{
-		Addr:    Options.Addr,
-		Handler: router,
+		Addr:    cfg.Addr,
+		Handler: server.MetricsRouter(store),
 	}
 
 	go func() {
@@ -43,7 +44,7 @@ func runServer(ctx context.Context) error {
 			log.Fatalf("Listen and serve: %v", err)
 		}
 	}()
-	log.Printf("Listening on %s", srv.Addr)
+	log.Printf("Listening on %s\r\n", srv.Addr)
 	<-ctx.Done()
 
 	log.Println("Shutting down server gracefully")
@@ -52,22 +53,7 @@ func runServer(ctx context.Context) error {
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("shutdown: %w", err)
+		return fmt.Errorf("server shutdown: %w", err)
 	}
-
-	longShutdown := make(chan struct{}, 1)
-
-	go func() {
-		time.Sleep(3 * time.Second)
-		longShutdown <- struct{}{}
-	}()
-
-	select {
-	case <-shutdownCtx.Done():
-		return fmt.Errorf("server shutdown: %w", ctx.Err())
-	case <-longShutdown:
-		log.Println("Finished")
-	}
-
 	return nil
 }
